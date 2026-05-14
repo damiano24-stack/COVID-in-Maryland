@@ -1,0 +1,189 @@
+---
+title: "Final R script"
+author: "Nick Damiano nad10016"
+date: "2025-12-08"
+output: pdf_document
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, tigris_use_cache = TRUE)
+```
+
+
+
+# Introduction
+COVID-19 is one of the most recent and well known topics in Public Health causing changes in the infrastructure of healthcare, emergency response, and social perceptions of the vaccine especially. This respiratory disease swept across the nation and affected the whole country. Although this was a national pandemic, the rate at which it affected states are different. The state of interest for this analysis is Maryland. Maryland is a state that is close to Washington DC and is home to several governmental agencies like the NIH. In this state, I want to analyze the differences of how COVID-19 was distributed across different counties and the burden on the state. 
+
+For this analysis, data from the New York Times COVID-19 dataset was used for this analysis. Data was collected on the national, state, and county level. This was collected by national, state, and local reports on COVID-19 cases. The state and county dataset will be modified to analyze data in seperate years and the difference in effects across different parts of Maryland using FIPS. 
+
+This analysis will allow for a more in depth analysis of the case distribution across the state and what parts of the state had the highest cumulative incidence. This also allows for time analysis and how the burden of COVID-19 changed over time
+
+## Packages Required
+The following output illustrates the necessary packages for the analysis.
+```{r}
+library(dplyr) #set of commands for data manipulation
+library(tibble)   # display for dataframes
+library(ggplot2)  #use for plotting
+library(tidyr)    #use for data visualization
+library(r02pro)   #package used through class
+library(usmap)    #allows for mapping of the US
+#setwd to necessary pathway for grading
+setwd("/Users/nickdamiano/Documents/Programming in R/Final Exam data files/")
+
+```
+
+
+## Data Preparation
+
+Data for this project is from a GitHub repository of daily COVID-19 cases from 2020 until the end of 2023. To read the data, the proper pathaway had to be established. Files were downloaded from GitHub and placed in a folder so no working directory had to be changed. The files were then imported, and were labeled as being uncleaned. 
+
+```{r}
+#load county and state data
+county <- read.csv("us-counties-all.csv")
+state <- read.csv("us-states.csv")
+```
+
+
+# Cleaning the Datasets
+
+Cleaning of the dataset was necessary to ensure that there were no missing values and no duplicate entries. To ensure that a new dataframe would not be needed, i checked the state and county dataset to ensure that there is no duplicate or overlapping data. Dates were also placed into a proper format. 
+
+```{r}
+state_clean <- state %>%
+  drop_na(deaths, cases, date, fips, state) %>% #drop incomplete entries
+  filter(cases>=0, deaths >=0) %>%  #dont retain negative values
+  mutate(date = as.Date(date))
+county_clean <- county %>% 
+  drop_na(deaths, cases, date, fips, state) %>%
+  filter(cases >= 0, deaths >= 0) %>%
+  mutate(date = as.Date(date))
+```
+
+# The Maryland Dataset
+In order to complete this analysis, I will be creating a data set that only pertains to data from the state of maryland and its counties. A summary of each variable was created to give summary statistics of the state and ensuring that all data points are for Maryland.
+```{r}
+maryland <- county_clean %>%
+  filter(state == "Maryland")
+
+head(maryland, 10) #prints first 10 rows
+names(maryland) #ensuring all names in data set is correct
+```
+
+
+## Data Analysis
+
+The current state of the data does not allow for graphing and would cause over plotting. To make this possible all cases and deaths need to be combined to create a trend line for the state. Dates were grouped together and summed to represent the total amount of cases on a particular date. Same has to be done in the state dataset to create national trends.
+To gain better understanding of the counties in Maryland, another data frame was made grouped by counties and cases across 2020 through 2023. This will be used to calculate cumulative cases per year across the different counties and to make visuals to show differences of burden across different counties. The summary statistics give the state a mean of close to 648,000 cases across the reporting period which was from March 5th, 2020 until March 23rd, 2020. In the first quantile Maryland reported over 220,000 cases. At the end of the rporting period, Maryland reported nearly over 1.3 million cases. 
+
+The modification to address maryland_trends datafram is used to account for the potential overplotting of counties and aggregated to create a total for the state. 
+```{r}
+maryland_trends <- maryland %>%
+  group_by(date) %>%
+  summarise(cases = sum(cases), deaths = sum(deaths), .groups = "drop")
+summary(maryland_trends)
+```
+# State Trends
+Similar to the Maryland dataset, this dataframe grouped together states and places cases and deaths in their respected state. 
+```{r}
+state_trends <- state_clean %>% 
+  group_by(state) %>%
+  summarise(cases = sum(cases), deaths = sum(cases), .groups = "drop")
+summary(state_trends)
+#mutate state dataset to be grouped by years
+```
+
+# Compared to other states
+The visual below represents the nationide trends of deaths per cases. The blue trendline represents Maryland's rate. Compared to other states, Maryland was able to maintain a rate that was below 10% while others went as high as 30%. 
+```{r}
+ggplot(state_clean) +
+geom_line(aes(x = date, y = deaths / cases, group = state, alpha = cases)) +
+geom_line(data = maryland_trends, aes(x = date, y = deaths / cases),
+colour = 'blue') 
+```
+
+# Cases across Maryland
+When looking at the number of cases across the state of Maryland, there is a steady growth of cases across 2020 and 2021. However, at the end of 2021 and the beggining of 2022, there is a steep increase in cases. Cumulative cases continued to increase in 2023 as well. 
+```{r}
+ggplot(maryland_trends) +geom_line(aes(x=date, y = cases)) + 
+  labs(title  = "Cumulative Cases of COVID-19 cases in Maryland(2020-2023)", 
+      x = "Date", y = "Cases" )
+```
+
+# Deaths in Maryland
+
+When deaths were plotted, there was steady rise in from the year 2020-2021. But similar to the cumulative cases, there was also a steep increase in deaths at the beggining of 2022. 
+```{r}
+
+ggplot(maryland_trends) +geom_line(aes(x=date, y = deaths)) + 
+  labs(title  = "Cumulative Deaths of COVID-19 deaths in Maryland(2020-2023)", 
+      x = "Date", y = "Deaths" )
+
+```
+#Death per Case
+
+As with many other states shown before, the initial wave of COVID-19 caused many deaths due to its recency and being unable to identify it. However, although it is a spike the state was able to maintain a rate below 5%. This is considerably lower than other states that had as high as 30%. 
+```{r}
+ggplot(maryland_trends) +geom_line(aes(x=date, y = deaths/cases)) + 
+  labs(title  = "Trend of COVID-19 death per case in Maryland(2020-2023)", 
+      x = "Date", y = "Deaths" )
+```
+
+# County Level Identification
+
+To analyze the burden across different counties it was important to group together the counties and dates so that they were in year format. With it being in year format, it allowed for the counties to combine based on year and get yearly totals. When doing this it was identified that Montgomery County had the highest reporting of cases on 2022 with nearly 134,293 cases being identified. 
+
+```{r}
+
+md_county_totals <- maryland %>%
+  mutate(date = as.Date(date), year = format(date, "%Y")) %>%  #change to year
+  filter(year %in% 2020:2023) %>%
+  group_by(year, county) %>%
+  summarise( cases_peryear = max(cases, na.rm = TRUE)-min(cases, na.rm = TRUE),
+           deaths_peryear = max(deaths, na.rm = TRUE)- min(deaths, na.rm = TRUE),
+           .groups = "drop")
+
+md_county_totals %>% arrange(desc(cases_peryear)) %>%
+  head(10)
+summary(md_county_totals)
+```
+# Proportion of cases in Counties 
+
+This portion of the analysis was to analyze the proportion of cases from each county. In other words, what county had the highest proportion of cases that contributed to the state total?
+
+When calculating this, counties were grouped by year and proportion was calculated based on each counties cumulative case count. From that its converted to a percentage and was plotted on a time series. Consistent with our results, Montgomery County was responsible for nearly over 20% of cases in Maryland consistent with the spike seen before when looking at Maryland's cumulative cases. 
+```{r}
+
+MD_county_proportion <- md_county_totals %>%
+  group_by(year) %>% 
+  mutate(per = cases_peryear/ sum(cases_peryear)) %>%
+  ungroup()
+
+ggplot(MD_county_proportion, 
+       aes(x = year, y = per, group = county, color = county)) + 
+  labs(
+    title = "County proportion of Cumulative Maryland Cases(2020-2023)",
+      x = "Years",
+    y = "Percentage of Cases(%)") + geom_line(alpha = .4)
+
+MD_county_table_prop<- MD_county_proportion %>%
+  select(county, year, per) %>%
+  mutate(percent_cases = per * 100) %>%
+  select(-per) %>%
+  pivot_wider( names_from = year,values_from = percent_cases)
+head(MD_county_table_prop,5)
+  
+```
+
+
+
+
+## Summary
+
+The objective of this analysis was to understand the distribution and burden of COVID-19 across the country and to understand the impact of COVID-19 particularly in the state of Maryland. This analysis was also to understand the county level as well, what counties may have experienced more cases and deaths. Through the dataset given, cleaning and modification of the was needed to understand measures like proportion and case-fatality. By removing uncessary data points such as missing or imcomplete entries, it allowed for more accurate data and understanding of the burden across different states and Maryland's counties. This data was used to analyze counties that were responsible for more cases and placed higher burden on the state. 
+
+Key findings from this analysis showed that health response varied both across the country and across the state of Maryland. This could be due to resource availability and population which could disproportionately affect the reporting rates across the state. Montgomery County could potentially be an affluent county with the resources to test and respond and may influence who recieves resources and who does not. With population being excluded from the data, it limited the analysis to find incidence in a particular area. That could potentially affect the results. Because it was only cumulative data, there were limits in the measurements and implications that could be made. 
+
+
+
