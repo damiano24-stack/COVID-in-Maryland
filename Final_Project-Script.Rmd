@@ -30,7 +30,7 @@ library(tidyr)    #use for data visualization
 library(r02pro)   #package used through class
 library(usmap)    #allows for mapping of the US
 #setwd to necessary pathway for grading
-setwd("/Users/nickdamiano/Documents/Programming in R/Final Exam data files/")
+
 
 ```
 
